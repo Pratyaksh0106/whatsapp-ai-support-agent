@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Acme Gadgets — AI Support Agent (Demo)</title>
+<style>
+  :root{
+    --wa-teal:#075E54; --wa-teal-dark:#054c44; --wa-green:#25D366;
+    --out:#d9fdd3; --in:#ffffff; --bg:#e5ddd5; --ink:#111b21; --muted:#667781;
+    --panel:#0b141a; --chip:#f0f2f5; --accent:#128C7E; --danger:#e8505b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  body{height:100vh;display:flex;background:#111b21;color:var(--ink)}
+  .app{display:flex;width:100%;max-width:1200px;margin:0 auto;box-shadow:0 0 40px rgba(0,0,0,.4)}
+
+  /* ---------- chat column ---------- */
+  .chat{flex:1 1 60%;display:flex;flex-direction:column;background:var(--bg);min-width:0}
+  .topbar{background:var(--wa-teal);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px}
+  .avatar{width:42px;height:42px;border-radius:50%;background:var(--wa-green);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:#063}
+  .topbar .meta{flex:1;min-width:0}
+  .topbar .name{font-weight:600;font-size:16px}
+  .topbar .status{font-size:12.5px;opacity:.85}
+  .topbar .status b{color:#b9f6ca}
+  .topbar button{background:rgba(255,255,255,.15);border:0;color:#fff;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+  .topbar button:hover{background:rgba(255,255,255,.28)}
+
+  .messages{flex:1;overflow-y:auto;padding:18px 8%;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><circle cx="30" cy="30" r="1.2" fill="%23d0c8bd"/></svg>')}
+  .row{display:flex;margin-bottom:10px}
+  .row.me{justify-content:flex-end}
+  .bubble{max-width:78%;padding:8px 11px 7px;border-radius:10px;font-size:14.6px;line-height:1.45;box-shadow:0 1px .5px rgba(0,0,0,.13);position:relative;white-space:pre-wrap;word-wrap:break-word}
+  .me .bubble{background:var(--out);border-top-right-radius:2px}
+  .bot .bubble{background:var(--in);border-top-left-radius:2px}
+  .time{font-size:10.5px;color:var(--muted);float:right;margin:6px 0 -2px 10px}
+  .insp{margin-top:6px;padding-top:6px;border-top:1px dashed #e3e3e3;font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px}
+  .tag{background:var(--chip);border-radius:20px;padding:2px 8px;font-size:10.5px;color:#3b4a54;font-weight:600}
+  .tag.tool{background:#e7f3ff;color:#0a6cff}
+  .tag.handoff{background:#ffe9e9;color:#d6334a}
+  .tag.ok{background:#e6f7ec;color:#1a8a4a}
+  .sys{text-align:center;margin:14px 0}
+  .sys span{background:#fff4c4;color:#5b5231;font-size:12px;padding:6px 12px;border-radius:8px;box-shadow:0 1px .5px rgba(0,0,0,.1)}
+  .typing .bubble{color:var(--muted);font-style:italic}
+
+  .composer{display:flex;gap:8px;padding:10px 12px;background:#f0f2f5;align-items:center}
+  .composer input{flex:1;border:0;border-radius:22px;padding:11px 16px;font-size:15px;outline:none}
+  .composer button{background:var(--wa-teal);border:0;color:#fff;width:46px;height:46px;border-radius:50%;cursor:pointer;font-size:18px}
+  .composer button:disabled{opacity:.5;cursor:not-allowed}
+  .chips{display:flex;gap:7px;flex-wrap:wrap;padding:8px 12px 2px;background:#f0f2f5}
+  .chip{background:#fff;border:1px solid #d7dde0;border-radius:16px;padding:6px 11px;font-size:12.3px;cursor:pointer;color:#33444e}
+  .chip:hover{background:var(--wa-teal);color:#fff;border-color:var(--wa-teal)}
+
+  /* ---------- side panel ---------- */
+  .side{flex:0 0 340px;background:var(--panel);color:#e9edef;display:flex;flex-direction:column;overflow-y:auto}
+  .side h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#8696a0;padding:16px 16px 8px}
+  .card{background:#111b21;margin:0 12px 10px;border:1px solid #222d34;border-radius:10px;padding:12px}
+  .persona{display:flex;gap:10px;align-items:center;cursor:pointer;padding:9px;border-radius:8px}
+  .persona:hover{background:#1f2c33}
+  .persona.active{background:#2a3942;outline:1px solid var(--wa-green)}
+  .persona .av{width:34px;height:34px;border-radius:50%;background:#2a3942;display:flex;align-items:center;justify-content:center;font-weight:700;color:#8696a0;font-size:13px}
+  .persona .pn{font-size:13.5px;font-weight:600}
+  .persona .pd{font-size:11px;color:#8696a0}
+  .kv{font-size:12px;color:#aebac1;line-height:1.7}
+  .kv b{color:#e9edef}
+  .pill{display:inline-block;background:#2a3942;border-radius:20px;padding:2px 9px;font-size:11px;margin:2px 3px 0 0;color:#8696a0}
+  .pill.live{background:#0b3;color:#001;font-weight:700}
+  .flow{font-size:11.5px;color:#aebac1;line-height:1.8}
+  .flow .n{display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;border-radius:50%;background:#2a3942;color:#8696a0;font-size:10px;margin-right:6px}
+  a.link{color:#53bdeb;text-decoration:none;font-size:12px}
+  .foot{margin-top:auto;padding:12px 16px;font-size:11px;color:#8696a0;border-top:1px solid #222d34}
+  @media(max-width:860px){.side{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ===== chat ===== -->
+  <section class="chat">
+    <div class="topbar">
+      <div class="avatar">A</div>
+      <div class="meta">
+        <div class="name">Ava · Acme Gadgets Support</div>
+        <div class="status">AI agent on <b>AWS Bedrock</b> · online</div>
+      </div>
+      <button id="resetBtn" title="Clear this customer's conversation">↺ Reset</button>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="chips" id="chips"></div>
+    <div class="composer">
+      <input id="input" placeholder="Type a message…" autocomplete="off" />
+      <button id="send">➤</button>
+    </div>
+  </section>
+
+  <!-- ===== inspector ===== -->
+  <aside class="side">
+    <h2>Chatting as</h2>
+    <div class="card" id="personas"></div>
+
+    <h2>Last turn — under the hood</h2>
+    <div class="card" id="inspector">
+      <div class="kv" style="color:#8696a0">Send a message to see the agent's tool calls, guardrails, latency and cost.</div>
+    </div>
+
+    <h2>How a message flows</h2>
+    <div class="card flow">
+      <div><span class="n">1</span>HMAC / API-key check</div>
+      <div><span class="n">2</span>Guardrails: injection, legal/fraud, rate-limit, budget</div>
+      <div><span class="n">3</span>Bedrock tool-calling loop</div>
+      <div><span class="n">4</span>Tools: RAG · order lookup · ticket · escalate</div>
+      <div><span class="n">5</span>Output guardrails + grounding check</div>
+      <div><span class="n">6</span>Metrics → CloudWatch</div>
+    </div>
+
+    <h2>Architecture</h2>
+    <div class="card">
+      <span class="pill live">● LIVE on AWS</span>
+      <div class="kv" style="margin-top:8px">
+        <b>Lambda</b> (FastAPI) · <b>Aurora pgvector</b> (RAG)<br>
+        <b>DynamoDB</b> (state) · <b>Bedrock</b> (LLM + embeds)<br>
+        <b>SNS</b> (handoff) · <b>CloudWatch</b> (metrics)
+      </div>
+    </div>
+
+    <div class="foot">
+      Demo UI → live Lambda Function URL.<br>
+      Tool calls &amp; latency shown are real.
+    </div>
+  </aside>
+</div>
+
+<script>
+/* ============================ CONFIG ============================ */
+/* Same-origin: CloudFront serves this page AND proxies /chat + /reset to the Lambda,
+   injecting the x-api-key header at the edge. The key is never present in the browser. */
+const BASE = "";
+/* =============================================================== */
+
+const CUSTOMERS = [
+  { id:"919999900001", name:"Aarav Sharma",  note:"owns ORD-1001 (shipped), ORD-1003 (delivered)", initials:"AS" },
+  { id:"919999900002", name:"Diya Patel",    note:"owns ORD-1002 (processing)", initials:"DP" },
+];
+const CHIPS = [
+  "Where is my order ORD-1001?",
+  "What is your return window?",
+  "How long does delivery take?",
+  "Do you accept cash on delivery?",
+  "My Acme Buds Pro arrived with a broken case",
+  "Can you check the status of ORD-1002?",
+  "This is fraud, I will call my lawyer",
+];
+
+let current = CUSTOMERS[0];
+
+const $ = s => document.querySelector(s);
+const msgs = $("#messages");
+const now  = () => new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+
+function renderPersonas(){
+  const el = $("#personas");
+  el.innerHTML = "";
+  CUSTOMERS.forEach(c => {
+    const d = document.createElement("div");
+    d.className = "persona" + (c.id===current.id ? " active":"");
+    d.innerHTML = `<div class="av">${c.initials}</div>
+      <div><div class="pn">${c.name}</div><div class="pd">+${c.id} · ${c.note}</div></div>`;
+    d.onclick = () => { current = c; renderPersonas(); clearChat(); greeting(); };
+    el.appendChild(d);
+  });
+}
+function renderChips(){
+  const el = $("#chips"); el.innerHTML = "";
+  CHIPS.forEach(t => {
+    const c = document.createElement("div");
+    c.className = "chip"; c.textContent = t;
+    c.onclick = () => { $("#input").value = t; send(); };
+    el.appendChild(c);
+  });
+}
+function clearChat(){ msgs.innerHTML = ""; }
+function greeting(){
+  sysLine(`Now chatting as ${current.name} (+${current.id})`);
+  addBot("Hi! 👋 I'm Ava from Acme Gadgets support. Ask me about your orders, returns, shipping, warranty or payments.", null);
+}
+function sysLine(t){
+  const d = document.createElement("div"); d.className="sys";
+  d.innerHTML = `<span>${t}</span>`; msgs.appendChild(d); scroll();
+}
+function addUser(text){
+  const r = document.createElement("div"); r.className="row me";
+  r.innerHTML = `<div class="bubble">${esc(text)}<span class="time">${now()}</span></div>`;
+  msgs.appendChild(r); scroll();
+}
+function addBot(text, meta){
+  const r = document.createElement("div"); r.className="row bot";
+  let insp = "";
+  if(meta){
+    const tags = [];
+    (meta.tools||[]).forEach(t => tags.push(`<span class="tag tool">🔧 ${t}</span>`));
+    if(meta.handoff) tags.push(`<span class="tag handoff">🤚 handoff: ${esc(meta.handoff_reason||"")}</span>`);
+    else tags.push(`<span class="tag ok">✓ auto-resolved</span>`);
+    if(meta.latency_ms!=null) tags.push(`<span class="tag">⚡ ${Math.round(meta.latency_ms)} ms</span>`);
+    insp = `<div class="insp">${tags.join("")}</div>`;
+  }
+  r.innerHTML = `<div class="bubble">${esc(text)}<span class="time">${now()}</span>${insp}</div>`;
+  msgs.appendChild(r); scroll();
+}
+function typing(on){
+  if(on){
+    const r=document.createElement("div"); r.className="row bot typing"; r.id="typing";
+    r.innerHTML=`<div class="bubble">Ava is typing…</div>`; msgs.appendChild(r); scroll();
+  } else { const t=$("#typing"); if(t) t.remove(); }
+}
+function updateInspector(meta){
+  const el = $("#inspector");
+  if(!meta){ return; }
+  const tools = (meta.tools&&meta.tools.length)? meta.tools.map(t=>`<span class="pill">${t}</span>`).join("") : `<span class="pill">none</span>`;
+  const flags = (meta.flags&&meta.flags.length)? meta.flags.map(f=>`<span class="pill">${esc(f)}</span>`).join("") : `<span class="pill">none</span>`;
+  el.innerHTML = `
+    <div class="kv"><b>Tools called</b><br>${tools}</div>
+    <div class="kv" style="margin-top:8px"><b>Handoff</b><br>
+      ${meta.handoff? `<span class="pill" style="background:#512; color:#f99">YES — ${esc(meta.handoff_reason||"")}</span>` : `<span class="pill" style="background:#042; color:#6e9">no — bot resolved it</span>`}</div>
+    <div class="kv" style="margin-top:8px"><b>Latency</b> ${meta.latency_ms!=null?Math.round(meta.latency_ms)+" ms":"—"}
+       &nbsp; <b>Cost</b> $${(meta.cost_usd||0).toFixed(5)}</div>
+    <div class="kv" style="margin-top:8px"><b>Guardrail flags</b><br>${flags}</div>`;
+}
+function scroll(){ msgs.scrollTop = msgs.scrollHeight; }
+function esc(s){ return (s||"").replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+async function send(){
+  const input = $("#input"); const text = input.value.trim();
+  if(!text) return;
+  input.value=""; $("#send").disabled=true;
+  addUser(text); typing(true);
+  try{
+    const res = await fetch(BASE+"/chat", {
+      method:"POST",
+      headers:{ "content-type":"application/json" },
+      body: JSON.stringify({ customer_id: current.id, text })
+    });
+    typing(false);
+    if(!res.ok){ addBot(`⚠️ Server error (${res.status}).`, null); return; }
+    const data = await res.json();
+    updateInspector(data);
+    if(data.reply){
+      addBot(data.reply, data);
+    } else if(data.handoff){
+      sysLine("🧑‍💼 This thread is now with a human agent — the bot stays silent. Click ↺ Reset to replay.");
+    } else {
+      addBot("(no reply)", data);
+    }
+  }catch(e){
+    typing(false);
+    addBot("⚠️ Could not reach the agent. Check your connection / that the stack is deployed.", null);
+  }finally{
+    $("#send").disabled=false; input.focus();
+  }
+}
+
+async function resetConv(){
+  try{
+    await fetch(BASE+"/reset", {
+      method:"POST",
+      headers:{ "content-type":"application/json" },
+      body: JSON.stringify({ customer_id: current.id })
+    });
+  }catch(e){}
+  clearChat(); greeting();
+}
+
+$("#send").onclick = send;
+$("#input").addEventListener("keydown", e => { if(e.key==="Enter") send(); });
+$("#resetBtn").onclick = resetConv;
+
+renderPersonas(); renderChips(); greeting(); $("#input").focus();
+</script>
+</body>
+</html>

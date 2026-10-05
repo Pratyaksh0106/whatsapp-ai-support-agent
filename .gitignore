@@ -1,0 +1,16 @@
+build/
+dist/
+__pycache__/
+.terraform/
+*.tfstate*
+*.tfvars
+.env
+evals/results.json
+
+# local tooling / artifacts
+.venv/
+.pytest_cache/
+*.log
+secret.json
+.claude/
+crash.*.log

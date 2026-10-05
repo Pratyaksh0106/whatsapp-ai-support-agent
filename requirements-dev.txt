@@ -1,0 +1,4 @@
+-r requirements-lambda.txt
+boto3>=1.35
+pytest>=8
+mcp>=1.2,<2

@@ -1,0 +1,56 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # OIDC -> AWS, no long-lived keys in GitHub
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: mkdir -p dist && echo x > dist/lambda.zip   # validate only needs the file to exist
+      - run: terraform -chdir=terraform fmt -check -recursive
+      - run: terraform -chdir=terraform init -backend=false
+      - run: terraform -chdir=terraform validate
+
+  evals:
+    # Regression gate: runs the golden set against real Bedrock. Enable by setting repo variable AWS_ROLE_ARN
+    # (terraform output ci_role_arn). Fails the PR if pass-rate / judge score / cost regress vs evals/baseline.json.
+    needs: unit
+    if: ${{ vars.AWS_ROLE_ARN != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements-dev.txt
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - run: python -m evals.run_evals --judge
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: eval-results, path: evals/results.json }
+      - if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json; s=json.load(open("evals/results.json"))["summary"]
+          print("### Eval results\n\n| metric | value |\n|---|---|")
+          [print(f"| {k} | {v} |") for k,v in s.items()]
+          PY
